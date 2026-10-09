@@ -1,0 +1,12 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
+    "editor.semanticTokenColorCustomizations": {
+    "enabled": true,
+    "rules": {
+        "variable.readonly": {
+            "foreground": "#a5b4f5",
+        }
+    }
+}
+}
