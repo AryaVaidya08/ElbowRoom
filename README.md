@@ -1,0 +1,1 @@
+The goal is to create a 2D two-link robot arm with a gripper that learns to pick up a ball and place it while avoiding obstacles using RL.
