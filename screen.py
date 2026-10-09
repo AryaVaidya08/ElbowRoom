@@ -10,6 +10,7 @@ FLOOR_COLOR = (200, 200, 200)
 SEG1_COLOR = (255, 0, 0)
 SEG2_COLOR = (0, 255, 0)
 JOINT_COLOR = (50, 50, 50)
+TARGET_COLOR = (0, 0, 255)
 
 SEG_THICKNESS = 6
 JOINT_RADIUS = 10
@@ -31,34 +32,54 @@ def setup_screen():
 
     return screen
 
+def calculate_beta(end_pos):
+    # Convert absolute screen coordinates to coordinates relative to the base
+    x = end_pos[0] - ARM_START[0]
+    y = ARM_START[1] - end_pos[1]  # Flip y-axis
+
+    num = x**2 + y**2 - SEG1_LEN**2 - SEG2_LEN**2
+    den = 2 * SEG1_LEN * SEG2_LEN
+
+    return -math.acos(max(-1, min(1, num / den)))
+
+
+def calculate_alpha(end_pos, beta):
+    x = end_pos[0] - ARM_START[0]
+    y = ARM_START[1] - end_pos[1]
+
+    num = SEG2_LEN * math.sin(beta)
+    den = SEG1_LEN + SEG2_LEN * math.cos(beta)
+
+    return math.atan2(y, x) - math.atan2(num, den)
+
+
 def calculate_elbow_pos(alpha):
-    #using polar coordinates
     x = SEG1_LEN * math.cos(alpha)
     y = SEG1_LEN * math.sin(alpha)
-    print("elbow", x, y)
+
     return (ARM_START[0] + x, ARM_START[1] - y)
 
-def calculate_end_pos(elbow, beta):
-    x = SEG2_LEN * math.cos(beta)
-    y = SEG2_LEN * math.sin(beta)
-    print("end", x, y)    
-    return (elbow[0] + x, elbow[1] - y)
+def calculate_tip_pos(elbow, alpha, beta):
+    x = elbow[0] + SEG2_LEN * math.cos(alpha + beta)
+    y = elbow[1] - SEG2_LEN * math.sin(alpha + beta)  # minus because screen y is flipped
+    return (x, y)
 
-def draw_robot(screen, alpha, beta):
+def draw_robot(screen, target_pos):
+    beta = calculate_beta(target_pos)
+    alpha = calculate_alpha(target_pos, beta)
     elbow = calculate_elbow_pos(alpha)
-    end = calculate_end_pos(elbow, alpha + beta)
-
-    print(ARM_START, elbow, end)
+    tip = calculate_tip_pos(elbow, alpha, beta)
 
     screen.fill((0, 0, 0))
-
     pygame.draw.rect(screen, FLOOR_COLOR, FLOOR)
 
     pygame.draw.line(screen, SEG1_COLOR, ARM_START, elbow, SEG_THICKNESS)
-    pygame.draw.line(screen, SEG2_COLOR, elbow, end, SEG_THICKNESS)
+    pygame.draw.line(screen, SEG2_COLOR, elbow, tip, SEG_THICKNESS)
 
     pygame.draw.circle(screen, JOINT_COLOR, elbow, JOINT_RADIUS)
-    pygame.draw.circle(screen, JOINT_COLOR, end, JOINT_RADIUS)
+    pygame.draw.circle(screen, JOINT_COLOR, tip, JOINT_RADIUS)
+
+    pygame.draw.circle(screen, TARGET_COLOR, target_pos, JOINT_RADIUS / 2)
 
     pygame.draw.rect(screen, JOINT_COLOR, ROBOT_BASE)
     pygame.display.flip()
@@ -68,8 +89,7 @@ pygame.init()
 
 screen = setup_screen()
 
-alpha_angle = 30
-beta_angle = 60
+end_pos = [294.65566742582274, 310.3362276988979]
 
 running = True
 while running:
@@ -80,25 +100,25 @@ while running:
         #Course Controls
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT:
-                beta_angle += 1
+                end_pos[0] -= 1
             elif event.key == pygame.K_RIGHT:
-                beta_angle -= 1
+                end_pos[0] += 1
             elif event.key == pygame.K_UP:
-                alpha_angle += 1
+                end_pos[1] -= 1
             elif event.key == pygame.K_DOWN:
-                alpha_angle -= 1
+                end_pos[1] += 1
 
         #Fine Controls
         if event.type == pygame.TEXTINPUT:
             if event.text == "a":
-                beta_angle += 3
+                end_pos[0] -= 3
             elif event.text == "d":
-                beta_angle -= 3
+                end_pos[0] += 3
             elif event.text == "w":
-                alpha_angle += 3
+                end_pos[1] -= 3
             elif event.text == "s":
-                alpha_angle -= 3
+                end_pos[1] += 3
 
-    draw_robot(screen, math.radians(alpha_angle), math.radians(beta_angle))
+    draw_robot(screen, end_pos)
 
 pygame.quit()
