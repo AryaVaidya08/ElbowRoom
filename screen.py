@@ -1,5 +1,6 @@
 import pygame
 import math
+import random
 
 WIDTH = 600
 HEIGHT = 450
@@ -15,9 +16,9 @@ TARGET_COLOR = (0, 0, 255)
 SEG_THICKNESS = 6
 JOINT_RADIUS = 10
 
-ARM_START = (WIDTH / 4, HEIGHT - FLOOR_HEIGHT)
-SEG1_LEN = 100.0
-SEG2_LEN = 50.0
+ARM_START = (WIDTH / 2, HEIGHT - FLOOR_HEIGHT)
+SEG1_LEN = 200.0
+SEG2_LEN = 75.0
 
 ROBOT_BASE = pygame.Rect((ARM_START[0] - 20, ARM_START[1] - 20), (40, 25))
 FLOOR = pygame.Rect((0, HEIGHT - FLOOR_HEIGHT), (WIDTH, FLOOR_HEIGHT))
@@ -26,11 +27,9 @@ def setup_screen():
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Elbow Room")
 
-    floor = pygame.Rect((0, HEIGHT - FLOOR_HEIGHT), (WIDTH, FLOOR_HEIGHT))
-    pygame.draw.rect(screen, FLOOR_COLOR, floor)
-    pygame.display.flip()
+    font = pygame.font.Font("freesansbold.ttf", 24)
 
-    return screen
+    return screen, font
 
 def calculate_beta(end_pos):
     # Convert absolute screen coordinates to coordinates relative to the base
@@ -70,6 +69,8 @@ def draw_robot(screen, target_pos):
     elbow = calculate_elbow_pos(alpha)
     tip = calculate_tip_pos(elbow, alpha, beta)
 
+    print(math.degrees(alpha), math.degrees(beta))
+
     screen.fill((0, 0, 0))
     pygame.draw.rect(screen, FLOOR_COLOR, FLOOR)
 
@@ -82,14 +83,13 @@ def draw_robot(screen, target_pos):
     pygame.draw.circle(screen, TARGET_COLOR, target_pos, JOINT_RADIUS / 2)
 
     pygame.draw.rect(screen, JOINT_COLOR, ROBOT_BASE)
-    pygame.display.flip()
 
 
 pygame.init()
 
-screen = setup_screen()
+screen, font = setup_screen()
 
-end_pos = [294.65566742582274, 310.3362276988979]
+target = [344, 225]
 
 running = True
 while running:
@@ -100,25 +100,35 @@ while running:
         #Course Controls
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT:
-                end_pos[0] -= 1
+                target[0] -= 1
             elif event.key == pygame.K_RIGHT:
-                end_pos[0] += 1
+                target[0] += 1
             elif event.key == pygame.K_UP:
-                end_pos[1] -= 1
+                target[1] -= 1
             elif event.key == pygame.K_DOWN:
-                end_pos[1] += 1
+                target[1] += 1
 
         #Fine Controls
         if event.type == pygame.TEXTINPUT:
             if event.text == "a":
-                end_pos[0] -= 3
+                target[0] -= 5
             elif event.text == "d":
-                end_pos[0] += 3
+                target[0] += 5
             elif event.text == "w":
-                end_pos[1] -= 3
+                target[1] -= 5
             elif event.text == "s":
-                end_pos[1] += 3
+                target[1] += 5
 
-    draw_robot(screen, end_pos)
+
+    target = [max(0, min(target[0], WIDTH)), max(0, min(target[1], HEIGHT - FLOOR_HEIGHT))]
+
+    draw_robot(screen, target)
+
+    pos_text = font.render(str(target), True, (255, 255, 255))
+    textRect = pos_text.get_rect()
+    textRect.center = (50, WIDTH - 80)
+    screen.blit(pos_text, pos_text.get_rect())
+
+    pygame.display.flip()
 
 pygame.quit()
