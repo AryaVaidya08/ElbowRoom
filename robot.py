@@ -28,8 +28,10 @@ FLOOR = pygame.Rect((0, HEIGHT - FLOOR_HEIGHT), (WIDTH, FLOOR_HEIGHT))
 #JOINT LIMITS
 ALPHA_MIN = math.radians(0)
 ALPHA_MAX = math.radians(180)
-BETA_MIN = math.radians(-150)
-BETA_MAX = math.radians(150)
+BETA_MIN = math.radians(-165)
+BETA_MAX = math.radians(165)
+
+MAX_SPEED = 2
 
 def setup_screen():
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -84,8 +86,19 @@ def solve_ik(target_pos, prefer_sign):
             max(BETA_MIN, min(beta, BETA_MAX)))
 
 
-def draw_robot(screen, target_pos, prefer_sign):
-    alpha, beta = solve_ik(target_pos, prefer_sign)
+def move_toward(alpha, beta, alpha_goal, beta_goal, dt):
+    da = alpha_goal - alpha
+    db = beta_goal - beta
+    dist = max(abs(da), abs(db))
+
+    if dist < 1e-9:
+        return alpha_goal, beta_goal
+
+    scale = min(1.0, MAX_SPEED * dt / dist)
+    return alpha + da * scale, beta + db * scale
+
+
+def draw_robot(screen, target_pos, alpha, beta):
     elbow = calculate_elbow_pos(alpha)
     tip = calculate_tip_pos(elbow, alpha, beta)
 
@@ -109,11 +122,16 @@ pygame.init()
 
 screen, font = setup_screen()
 
+sim_clock = pygame.time.Clock()
 target = [344, 225]
 elbow_sign = -1
 
+alpha, beta = solve_ik(target, elbow_sign)
+
 running = True
 while running:
+    dt = sim_clock.tick(60) / 1000
+
     for event in pygame.event.get():
         if event.type == pygame.KEYDOWN and event.key == 113:       #Ctrl + q stops the program
             running = False
@@ -147,11 +165,15 @@ while running:
 
     target = [max(0, min(target[0], WIDTH)), max(0, min(target[1], HEIGHT - FLOOR_HEIGHT))]
 
-    calc_alpha, calc_beta = draw_robot(screen, target, elbow_sign)
+    
 
-    if calc_beta != 0:
-        elbow_sign = 1 if calc_beta > 0 else -1
+    if beta != 0:
+        elbow_sign = 1 if beta > 0 else -1
 
+    alpha_goal, beta_goal = solve_ik(target, elbow_sign)
+    alpha, beta = move_toward(alpha, beta, alpha_goal, beta_goal, dt)
+    draw_robot(screen, target, alpha, beta)
+    
     pos_text = font.render(str(target), True, (255, 255, 255))
     textRect = pos_text.get_rect()
     textRect.center = (50, WIDTH - 80)
