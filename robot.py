@@ -1,16 +1,13 @@
 import pygame
 import math
-import random
+from utils import wrap_angle
 
 WIDTH = 600
 HEIGHT = 450
 FLOOR_HEIGHT = 100
 
-FLOOR_COLOR = (200, 200, 200)
-
 SEG1_COLOR1 = (255, 0, 0)
 SEG2_COLOR1 = (0, 255, 0)
-
 
 JOINT_COLOR = (50, 50, 50)
 TARGET_COLOR = (0, 0, 255)
@@ -23,9 +20,7 @@ SEG1_LEN = 200.0
 SEG2_LEN = 75.0
 
 ROBOT_BASE = pygame.Rect((ARM_START[0] - 20, ARM_START[1] - 20), (40, 25))
-FLOOR = pygame.Rect((0, HEIGHT - FLOOR_HEIGHT), (WIDTH, FLOOR_HEIGHT))
 
-#JOINT LIMITS
 ALPHA_MIN = math.radians(0)
 ALPHA_MAX = math.radians(180)
 BETA_MIN = math.radians(-165)
@@ -33,152 +28,86 @@ BETA_MAX = math.radians(165)
 
 MAX_SPEED = 2
 
-def setup_screen():
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Elbow Room")
+class Robot(pygame.sprite.Sprite):
+    def __init__(self, target, elbow_sign):
+        pygame.sprite.Sprite.__init__(self)
+        self.target = target
+        self.elbow_sign = elbow_sign
 
-    font = pygame.font.Font("freesansbold.ttf", 24)
+        self.alpha, self.beta = self.solve_ik(target, self.elbow_sign)
 
-    return screen, font
+    def update(self, new_target, dt):
+        self.target = new_target
 
-def calculate_elbow_pos(alpha):
-    x = SEG1_LEN * math.cos(alpha)
-    y = SEG1_LEN * math.sin(alpha)
+        # keep the current elbow orientation so the arm doesn't flip mid-motion
+        if self.beta != 0:
+            self.elbow_sign = 1 if self.beta > 0 else -1
 
-    return (ARM_START[0] + x, ARM_START[1] - y)
+        alpha_goal, beta_goal = self.solve_ik(self.target, self.elbow_sign)
+        self.alpha, self.beta = self.move_toward(self.alpha, self.beta, alpha_goal, beta_goal, dt)
 
-def calculate_tip_pos(elbow, alpha, beta):
-    x = elbow[0] + SEG2_LEN * math.cos(alpha + beta)
-    y = elbow[1] - SEG2_LEN * math.sin(alpha + beta)  # minus because screen y is flipped
-    return (x, y)
+    def move_toward(self, alpha, beta, alpha_goal, beta_goal, dt):
+        da = alpha_goal - alpha
+        db = beta_goal - beta
+        dist = max(abs(da), abs(db))
 
-def wrap_angle(angle):
-    return (angle + math.pi) % (2 * math.pi) - math.pi
+        if dist < 1e-9:
+            return alpha_goal, beta_goal
 
-def solve_ik(target_pos, prefer_sign):
-    x = target_pos[0] - ARM_START[0]
-    y = ARM_START[1] - target_pos[1]
+        scale = min(1.0, MAX_SPEED * dt / dist)
+        return alpha + da * scale, beta + db * scale
 
-    num = x**2 + y**2 - SEG1_LEN**2 - SEG2_LEN**2
-    den = 2 * SEG1_LEN * SEG2_LEN
+    def calculate_elbow_pos(self, alpha):
+        x = SEG1_LEN * math.cos(alpha)
+        y = SEG1_LEN * math.sin(alpha)
 
-    beta_magnitude = math.acos(max(-1, min(1, num / den)))
+        return (ARM_START[0] + x, ARM_START[1] - y)
 
-    final_config = None
-    for sign in (prefer_sign, -prefer_sign):
-        beta = beta_magnitude * sign
+    def calculate_tip_pos(self, elbow, alpha, beta):
+        x = elbow[0] + SEG2_LEN * math.cos(alpha + beta)
+        y = elbow[1] - SEG2_LEN * math.sin(alpha + beta)  # minus because screen y is flipped
+        return (x, y)
 
-        num = SEG2_LEN * math.sin(beta)
-        den = SEG1_LEN + SEG2_LEN * math.cos(beta)
-        alpha = wrap_angle(math.atan2(y, x) - math.atan2(num, den))
+    def solve_ik(self, target_pos, prefer_sign):
+        x = target_pos[0] - ARM_START[0]
+        y = ARM_START[1] - target_pos[1]
 
-        alpha_error = max(0, ALPHA_MIN - alpha, alpha - ALPHA_MAX)
-        beta_error = max(0, BETA_MIN - beta, beta - BETA_MAX)
-        error = alpha_error + beta_error
+        num = x**2 + y**2 - SEG1_LEN**2 - SEG2_LEN**2
+        den = 2 * SEG1_LEN * SEG2_LEN
 
-        # strict < so the preferred sign wins ties
-        if final_config is None or error < final_config[0]:
-            final_config = (error, alpha, beta)
+        beta_magnitude = math.acos(max(-1, min(1, num / den)))
 
-    _, alpha, beta = final_config
+        final_config = None
+        for sign in (prefer_sign, -prefer_sign):
+            beta = beta_magnitude * sign
 
-    return (max(ALPHA_MIN, min(alpha, ALPHA_MAX)),
-            max(BETA_MIN, min(beta, BETA_MAX)))
+            num = SEG2_LEN * math.sin(beta)
+            den = SEG1_LEN + SEG2_LEN * math.cos(beta)
+            alpha = wrap_angle(math.atan2(y, x) - math.atan2(num, den))
 
+            alpha_error = max(0, ALPHA_MIN - alpha, alpha - ALPHA_MAX)
+            beta_error = max(0, BETA_MIN - beta, beta - BETA_MAX)
+            error = alpha_error + beta_error
 
-def move_toward(alpha, beta, alpha_goal, beta_goal, dt):
-    da = alpha_goal - alpha
-    db = beta_goal - beta
-    dist = max(abs(da), abs(db))
+            # strict < so the preferred sign wins ties
+            if final_config is None or error < final_config[0]:
+                final_config = (error, alpha, beta)
 
-    if dist < 1e-9:
-        return alpha_goal, beta_goal
+        _, alpha, beta = final_config
 
-    scale = min(1.0, MAX_SPEED * dt / dist)
-    return alpha + da * scale, beta + db * scale
+        return (max(ALPHA_MIN, min(alpha, ALPHA_MAX)),
+                max(BETA_MIN, min(beta, BETA_MAX)))
 
+    def draw(self, screen):
+        elbow = self.calculate_elbow_pos(self.alpha)
+        tip = self.calculate_tip_pos(elbow, self.alpha, self.beta)
 
-def draw_robot(screen, target_pos, alpha, beta):
-    elbow = calculate_elbow_pos(alpha)
-    tip = calculate_tip_pos(elbow, alpha, beta)
+        pygame.draw.line(screen, SEG1_COLOR1, ARM_START, elbow, SEG_THICKNESS)
+        pygame.draw.line(screen, SEG2_COLOR1, elbow, tip, SEG_THICKNESS)
 
-    screen.fill((0, 0, 0))
-    pygame.draw.rect(screen, FLOOR_COLOR, FLOOR)
+        pygame.draw.circle(screen, JOINT_COLOR, elbow, JOINT_RADIUS)
+        pygame.draw.circle(screen, JOINT_COLOR, tip, JOINT_RADIUS)
 
-    pygame.draw.line(screen, SEG1_COLOR1, ARM_START, elbow, SEG_THICKNESS)
-    pygame.draw.line(screen, SEG2_COLOR1, elbow, tip, SEG_THICKNESS)
+        pygame.draw.circle(screen, TARGET_COLOR, self.target, JOINT_RADIUS / 2)
 
-    pygame.draw.circle(screen, JOINT_COLOR, elbow, JOINT_RADIUS)
-    pygame.draw.circle(screen, JOINT_COLOR, tip, JOINT_RADIUS)
-
-    pygame.draw.circle(screen, TARGET_COLOR, target_pos, JOINT_RADIUS / 2)
-
-    pygame.draw.rect(screen, JOINT_COLOR, ROBOT_BASE)
-
-    return alpha, beta
-
-
-pygame.init()
-
-screen, font = setup_screen()
-
-sim_clock = pygame.time.Clock()
-target = [344, 225]
-elbow_sign = -1
-
-alpha, beta = solve_ik(target, elbow_sign)
-
-running = True
-while running:
-    dt = sim_clock.tick(60) / 1000
-
-    for event in pygame.event.get():
-        if event.type == pygame.KEYDOWN and event.key == 113:       #Ctrl + q stops the program
-            running = False
-
-        #Jump Controls
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            target = [event.pos[0], event.pos[1]]
-
-        #Course Controls
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_LEFT:
-                target[0] -= 1
-            elif event.key == pygame.K_RIGHT:
-                target[0] += 1
-            elif event.key == pygame.K_UP:
-                target[1] -= 1
-            elif event.key == pygame.K_DOWN:
-                target[1] += 1
-
-        #Fine Controls
-        if event.type == pygame.TEXTINPUT:
-            if event.text == "a":
-                target[0] -= 5
-            elif event.text == "d":
-                target[0] += 5
-            elif event.text == "w":
-                target[1] -= 5
-            elif event.text == "s":
-                target[1] += 5
-
-
-    target = [max(0, min(target[0], WIDTH)), max(0, min(target[1], HEIGHT - FLOOR_HEIGHT))]
-
-    
-
-    if beta != 0:
-        elbow_sign = 1 if beta > 0 else -1
-
-    alpha_goal, beta_goal = solve_ik(target, elbow_sign)
-    alpha, beta = move_toward(alpha, beta, alpha_goal, beta_goal, dt)
-    draw_robot(screen, target, alpha, beta)
-    
-    pos_text = font.render(str(target), True, (255, 255, 255))
-    textRect = pos_text.get_rect()
-    textRect.center = (50, WIDTH - 80)
-    screen.blit(pos_text, pos_text.get_rect())
-
-    pygame.display.flip()
-
-pygame.quit()
+        pygame.draw.rect(screen, JOINT_COLOR, ROBOT_BASE)
