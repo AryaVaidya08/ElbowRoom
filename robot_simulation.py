@@ -1,9 +1,8 @@
 import pygame
-from robot import Robot
+from sprites import robot
 
 WIDTH = 600
 HEIGHT = 450
-
 
 FLOOR_HEIGHT = 100
 FLOOR_COLOR = (200, 200, 200)
@@ -27,8 +26,9 @@ sim_clock = pygame.time.Clock()
 
 target = [344, 225]
 elbow_sign = -1
+robot = robot.Robot(target, elbow_sign)
 
-robot = Robot(target, elbow_sign)
+
 
 running = True
 while running:
