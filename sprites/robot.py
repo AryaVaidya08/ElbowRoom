@@ -1,10 +1,7 @@
 import pygame
 import math
+import utils
 from utils import wrap_angle
-
-WIDTH = 600
-HEIGHT = 450
-FLOOR_HEIGHT = 100
 
 SEG1_COLOR1 = (255, 0, 0)
 SEG2_COLOR1 = (0, 255, 0)
@@ -15,7 +12,7 @@ TARGET_COLOR = (0, 0, 255)
 SEG_THICKNESS = 6
 JOINT_RADIUS = 7
 
-ARM_START = (WIDTH / 2, HEIGHT - FLOOR_HEIGHT)
+ARM_START = (utils.WIDTH / 2, utils.HEIGHT - utils.FLOOR_HEIGHT)
 SEG1_LEN = 200.0
 SEG2_LEN = 75.0
 
@@ -99,14 +96,14 @@ class Robot(pygame.sprite.Sprite):
                 max(BETA_MIN, min(beta, BETA_MAX)))
 
     def draw(self, screen):
-        elbow = self.calculate_elbow_pos(self.alpha)
-        tip = self.calculate_tip_pos(elbow, self.alpha, self.beta)
+        self.elbow = self.calculate_elbow_pos(self.alpha)
+        self.tip = self.calculate_tip_pos(self.elbow, self.alpha, self.beta)
 
-        pygame.draw.line(screen, SEG1_COLOR1, ARM_START, elbow, SEG_THICKNESS)
-        pygame.draw.line(screen, SEG2_COLOR1, elbow, tip, SEG_THICKNESS)
+        pygame.draw.line(screen, SEG1_COLOR1, ARM_START, self.elbow, SEG_THICKNESS)
+        pygame.draw.line(screen, SEG2_COLOR1, self.elbow, self.tip, SEG_THICKNESS)
 
-        pygame.draw.circle(screen, JOINT_COLOR, elbow, JOINT_RADIUS)
-        pygame.draw.circle(screen, JOINT_COLOR, tip, JOINT_RADIUS)
+        pygame.draw.circle(screen, JOINT_COLOR, self.elbow, JOINT_RADIUS)
+        pygame.draw.circle(screen, JOINT_COLOR, self.tip, JOINT_RADIUS)
 
         pygame.draw.circle(screen, TARGET_COLOR, self.target, JOINT_RADIUS / 2)
 
