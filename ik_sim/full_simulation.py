@@ -58,6 +58,7 @@ goal = goal.Goal(screen, top_left)
 
 running = True
 holding_ball = False
+
 while running:
     dt = sim_clock.tick(60) / 1000
 
