@@ -1,5 +1,5 @@
 import gymnasium as gym
-from agents import CartAgent
+from agents import CartAgentQ
 import numpy as np
 from pprint import pprint
 from tqdm import tqdm
@@ -16,7 +16,7 @@ DISCOUNT = 0.99
 
 env = gym.make("CartPole-v1")
 
-agent = CartAgent(env, LR, START_E, E_DECAY, FINAL_E, DISCOUNT)
+agent = CartAgentQ(env, LR, START_E, E_DECAY, FINAL_E, DISCOUNT)
 
 for episode_num in tqdm(range(N_EPISODES)):
     obs, i = env.reset()
@@ -32,8 +32,7 @@ for episode_num in tqdm(range(N_EPISODES)):
         running = not (term or trun)
         obs = next_obs
 
-
     agent.decay_epsilon()
 
-pkl.dump(agent.q_table, open(f"gymnasium_testing/models/cartpole_v1_{N_EPISODES}.pkl", "wb"))
+pkl.dump(agent.q_table, open(f"gymnasium_testing/q_matrix/saved_models/cartpole_v1_{N_EPISODES}.pkl", "wb"))
     
