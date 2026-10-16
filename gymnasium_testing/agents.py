@@ -103,6 +103,14 @@ class CartAgentDeep:
             with torch.no_grad():
                 return self.policy_network(torch.tensor(obs)).argmax().item()
 
+    def get_reward(self, reward, state, type):
+        if type == "linear_distance":
+            return reward - abs(state[0])
+        elif type == "ratio_distance":
+            return reward - (abs(state[0]) / 2.4)
+
+        return reward
+
     def optimize(self, mini_batch, loss_func, optimizer):
         policy_list = []
         target_list = []
@@ -148,5 +156,5 @@ class CartAgentDeep:
         return step_count
 
     def decay_epi(self):
-        self.e = max(self.e - self.decay_e, 0)
+        self.e = max(self.e - self.decay_e, 0.05)
 

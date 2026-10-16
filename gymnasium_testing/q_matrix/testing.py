@@ -32,8 +32,3 @@ for episode_num in tqdm(range(10)):
     test_steps.append(steps)
 
 print(TRAINING_NUM, test_steps, sum(test_steps) / len(test_steps))
-
-# 100   [14, 55, 14, 59, 15, 53, 53, 14, 64, 60]            40.1
-# 1000  [86, 110, 106, 108, 100, 126, 95, 88, 112, 115]     104.6
-# 10000 [275, 309, 314, 247, 315, 302, 311, 298, 318, 326]  301.5
-# 50000 [499, 471, 500, 500, 456, 500, 500, 500, 471, 450]  484.7 (MAX is 500 timesteps)
